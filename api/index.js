@@ -1,9 +1,15 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import userRoute from './routes/userRoute.js';
 dotenv.config();
 
 const app = express();
+const port = process.env.Port || 4000;
+
+app.use(express.json());
+
+app.use('/api/user', userRoute);
 
 // Connect to MongoDB
 mongoose
@@ -15,8 +21,18 @@ mongoose
 		console.error('Error connecting to MongoDB:', error);
 	});
 
-const port = process.env.Port || 4000;
-
 app.listen(port, () => {
 	console.log(`You are listening to localhost/${port}`);
+});
+
+// Middleware for handling error messages
+app.use((err, req, res, next) => {
+	const statusCode = err.statusCode || 500; // Set the status code for the response
+	const message = err.message || 'Internal Server Error'; // Set the error message
+
+	return res.status(statusCode).json({
+		success: false, // Indicate that the request was not successful
+		statusCode,
+		message, // Include the error message in the response
+	});
 });
