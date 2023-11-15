@@ -68,6 +68,6 @@ export const signinUser = async (req, res, next) => {
 			user: userWithoutPassword,
 		});
 	} catch (err) {
-		return res.status(500).json({ message: 'Internal Server Error' });
+		return res.status(550).json({ message: 'Internal Server Error' });
 	}
 };

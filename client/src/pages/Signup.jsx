@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 export default function Signup() {
 	const [formData, setFormData] = useState({});
+	const [error, setError] = useState(null);
 
 	const navigate = useNavigate();
 	console.log(formData);
 	const handleChange = (e) => {
 		setFormData({ ...formData, [e.target.id]: e.target.value });
 	};
-	const handleSigninForm = async (e) => {
+	const handleSignUpForm = async (e) => {
 		e.preventDefault();
 
 		try {
@@ -19,11 +20,16 @@ export default function Signup() {
 			});
 			const data = await res.json();
 			if (data.success === false) {
+				setError(data.message);
 				return;
 			}
 			navigate('/signin');
+			setError(null);
 		} catch (error) {
 			console.log(error);
+			setError(
+				'An error occurred while making the request. Please try again later'
+			);
 		}
 	};
 
@@ -31,7 +37,7 @@ export default function Signup() {
 		<div>
 			<div className='p-3 max-w-lg mx-auto'>
 				<h1 className='text-center text-3xl font-semibold my-7'>Sign Up</h1>
-				<form onSubmit={handleSigninForm} className='flex flex-col gap-4'>
+				<form onSubmit={handleSignUpForm} className='flex flex-col gap-4'>
 					<input
 						onChange={handleChange}
 						type='text'
@@ -77,6 +83,7 @@ export default function Signup() {
 						<span className='text-blue-700'>Sign in</span>
 					</Link>
 				</div>
+				{error && <p className='text-red-500 mt-5'>{error}</p>}
 			</div>
 		</div>
 	);
