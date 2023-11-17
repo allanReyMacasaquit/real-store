@@ -1,16 +1,51 @@
 import errorHandler from '../middlewares/errorhandler.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import User from '../models/user.js';
+import User from '../models/User.js';
+import { json } from 'express';
 
 export const createUser = async (req, res, next) => {
-	const { firstname, lastname, mobile, email, password } = req.body;
+	const { firstname, lastname, role, mobile, email, password } = req.body;
+
+	const isValidEmail = (email) => {
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		return emailRegex.test(email);
+	};
+
+	// Validate the email format before proceeding
+	if (!isValidEmail(email)) {
+		return res.status(400).json({ message: 'Invalid email format' });
+	}
+	if (!email || email.length === 0) {
+		return res.status(400).json({ message: 'Email is required' });
+	}
+
+	// Check if the mobile number length is valid (must be 10 digits)
+	if (!mobile || !/^\d{10}$/.test(mobile)) {
+		return res
+			.status(400)
+			.json({ message: 'Mobile number must be 10 digits long' });
+	}
+
+	// Check if the email or mobile already exists in the database
+	const existingUserWithEmail = await User.findOne({ email });
+	if (existingUserWithEmail) {
+		return res.status(400).json({ message: 'Email is already taken' });
+	}
+
+	// Check if there's an existing user with the provided mobile number
+	const existingUserWithMobile = await User.findOne({ mobile });
+	if (existingUserWithMobile) {
+		return res.status(400).json({ message: 'Mobile number is already taken' });
+	}
+
 	const hashedPassword = bcryptjs.hashSync(password, 10);
 	const newUser = new User({
 		firstname,
 		lastname,
 		mobile,
 		email,
+		role,
 		password: hashedPassword,
 	});
 
@@ -92,25 +127,28 @@ export const getUsers = async (req, res, next) => {
 };
 
 export const getUserById = async (req, res, next) => {
-	const userId = req.params.id; // Extracting user ID from request parameters
+	const userId = req.params.id; // Extract the target userId from request parameters
+	const { role } = req.user; // Extract the user's role from req.user
 
 	try {
+		// Check if the user has administrator or special privileges
+		if (role !== 'admin') {
+			return res
+				.status(403)
+				.json({ message: 'Unauthorized to access this user' });
+		}
+
 		const user = await User.findById(userId);
 
 		if (!user) {
 			return res.status(404).json({ message: 'User not found' });
 		}
-
-		// Exclude the password field from the user object before sending the response
-		const { password, ...userWithoutPassword } = user.toObject();
-
-		res.json({
-			message: 'Successfully',
-			user: userWithoutPassword,
-		});
+		const { password, ...currentUser } = user.toObject();
+		// Send the user's details in the response
+		res.json({ currentUser });
 	} catch (error) {
 		console.error(error);
-		next(errorHandler('401', 'Unauthorized'));
+		next(error); // Pass the error to Express error handling middleware
 	}
 };
 
@@ -138,39 +176,55 @@ export const deleteUser = async (req, res, next) => {
 };
 
 export const updateUser = async (req, res, next) => {
-	const userId = req.params.id; // Extracting user ID from request parameters
-	const { email, mobile, password, firstname, lastname } = req.body; // Data to update, received from request body
+	const { _id } = req.user; // Extracting user ID from request parameters
+	const { email, mobile, password, role, firstname, lastname } = req.body; // Data to update, received from request body
 
 	try {
-		const userToUpdate = await User.findById(userId);
+		const updatedFields = {};
 
-		if (!userToUpdate) {
-			return res.status(404).json({ message: 'User not found' });
-		}
-
-		// Update allowed fields if they exist in the request
+		// Prepare the fields to be updated if they exist in the request
 		if (firstname) {
-			userToUpdate.firstname = firstname;
+			updatedFields.firstname = firstname;
 		}
-
 		if (lastname) {
-			userToUpdate.lastname = lastname;
+			updatedFields.lastname = lastname;
 		}
 		if (email) {
-			userToUpdate.email = email;
+			updatedFields.email = email;
 		}
-
 		if (mobile) {
-			userToUpdate.mobile = mobile;
+			updatedFields.mobile = mobile;
 		}
-
+		if (role) {
+			updatedFields.role = role;
+		}
 		if (password) {
 			// If updating password, hash the new password
-			userToUpdate.password = await bcryptjs.hash(password, 10);
+			updatedFields.password = await bcryptjs.hash(password, 10);
+		}
+		// Check if the email or mobile already exists in the database
+		const existingUserWithEmail = await User.findOne({ email });
+		const existingUserWithMobile = await User.findOne({ mobile });
+
+		if (existingUserWithEmail) {
+			return res.status(400).json({ message: 'Email is already taken' });
 		}
 
-		// Save the updated user
-		const updatedUser = await userToUpdate.save();
+		if (existingUserWithMobile) {
+			return res
+				.status(400)
+				.json({ message: 'Mobile number is already taken' });
+		}
+
+		const updatedUser = await User.findOneAndUpdate(
+			{ _id },
+			{ $set: updatedFields },
+			{ new: true } // To return the updated document
+		);
+
+		if (!updatedUser) {
+			return res.status(404).json({ message: 'User not found' });
+		}
 
 		// Exclude sensitive fields from the updated user object before sending the response
 		const { password: updatedPassword, ...updatedUserWithoutPassword } =
@@ -181,7 +235,70 @@ export const updateUser = async (req, res, next) => {
 			updatedUser: updatedUserWithoutPassword,
 		});
 	} catch (error) {
-		console.error(error);
-		next(errorHandler('401', 'Unauthorized'));
+		next(errorHandler('', 'Unauthorized'));
+	}
+};
+
+export const blockUserAccess = async (req, res, next) => {
+	const blockUser = async (userIdToBlock) => {
+		try {
+			const userToBlock = await User.findByIdAndUpdate(
+				userIdToBlock,
+				{ $set: { isBlocked: true } },
+				{ new: true }
+			);
+
+			if (!userToBlock) {
+				throw new Error('User not found');
+			}
+
+			return {
+				success: true,
+				message: 'User blocked successfully',
+				user: userToBlock,
+			};
+		} catch (error) {
+			throw new Error(error.message); // Propagate the error to the caller
+		}
+	};
+
+	try {
+		const _id = req.params.id;
+		const blockResult = await blockUser(_id);
+		res.status(200).json(blockResult);
+	} catch (error) {
+		next(errorHandler()); // Pass other errors to Express error handling middleware
+	}
+};
+
+export const unblockUserAccess = async (req, res, next) => {
+	const unblockUser = async (userIdTounBlock) => {
+		try {
+			const userToUpdate = await User.findByIdAndUpdate(
+				userIdTounBlock,
+				{ $set: { isBlocked: false } },
+				{ new: true }
+			);
+
+			if (!userToUpdate) {
+				throw new Error('User not found');
+			}
+
+			return {
+				success: true,
+				message: 'User unblocked successfully',
+				user: userToUpdate,
+			};
+		} catch (error) {
+			throw new Error(error.message); // Propagate the error to the caller
+		}
+	};
+
+	try {
+		const _id = req.params.id;
+		const unblockResult = await unblockUser(_id);
+		res.status(200).json(unblockResult);
+	} catch (error) {
+		next(errorHandler('401', 'Unauthorized User')); // Pass other errors to Express error handling middleware
 	}
 };
