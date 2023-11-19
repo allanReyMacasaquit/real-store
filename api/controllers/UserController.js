@@ -2,7 +2,6 @@ import errorHandler from '../middlewares/errorhandler.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { json } from 'express';
 
 export const createUser = async (req, res, next) => {
 	const { firstname, lastname, role, mobile, email, password } = req.body;
@@ -51,7 +50,7 @@ export const createUser = async (req, res, next) => {
 
 	try {
 		await newUser.save();
-		res.status(201).json('User created successfully!');
+		res.status(201).json({ message: 'User created successfully!' });
 	} catch (error) {
 		next(errorHandler('550', 'Duplicate properties'));
 	}
@@ -83,20 +82,21 @@ export const signinUser = async (req, res, next) => {
 
 		// Create a JWT token
 		const token = jwt.sign(tokenPayload, process.env.JWT_SECRET_KEY, {
-			expiresIn: '1h',
+			expiresIn: '1d',
 		});
 
 		// Set the token as a cookie in the response
 		res.cookie('jwtToken', token, {
 			httpOnly: true,
 			secure: true,
-			maxAge: 3600000,
+			maxAge: 24 * 60 * 60 * 1000,
 			// Other cookie options can be set as needed
 		});
 
 		// Create a user object without the password field
 		const userWithoutPassword = { ...user.toObject() };
 		delete userWithoutPassword.password;
+
 		// Send a success response without the password
 		res.status(200).json({
 			message: 'Sign-in successful',
@@ -300,5 +300,70 @@ export const unblockUserAccess = async (req, res, next) => {
 		res.status(200).json(unblockResult);
 	} catch (error) {
 		next(errorHandler('401', 'Unauthorized User')); // Pass other errors to Express error handling middleware
+	}
+};
+
+export const handleRefreshToken = async (req, res) => {
+	const refreshToken = req.cookies.jwtToken;
+
+	if (!refreshToken) {
+		console.log('No Token found');
+		return; // Exit function or send appropriate response
+	}
+
+	try {
+		const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET_KEY);
+		const user = await User.findOne({ _id: decoded.userId });
+
+		if (!user) {
+			return next(new Error('Invalid Credentials'));
+		}
+		const accessToken = jwt.sign('refreshToken', process.env.JWT_SECRET_KEY);
+		res.json({ accessToken });
+		// Further operations with the user...
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ error: 'Internal Server Error' });
+	}
+};
+
+export const Logout = async (req, res) => {
+	try {
+		const refreshToken = req.cookies.jwtToken;
+
+		if (!refreshToken) {
+			console.log('No Token found');
+			return res.status(401).send('No Token found');
+		}
+
+		const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET_KEY);
+
+		const user = await User.findById(decoded.userId);
+		if (!user) {
+			res.clearCookie('jwtToken', {
+				httpOnly: true,
+				secure: true,
+			});
+			return res.status(403).send('Forbidden');
+		}
+
+		// Assuming refreshToken is a field in the User model that needs updating
+		await User.findByIdAndUpdate(decoded.userId, {
+			jwtToken: '',
+		});
+
+		res.clearCookie('jwtToken', {
+			httpOnly: true,
+			secure: true,
+		});
+		res.clearCookie('accessToken', {
+			httpOnly: true,
+			secure: true,
+		});
+
+		return res.status(204).send('Logout successful');
+	} catch (error) {
+		console.log(error);
+		return res.status(500).send('Internal Server Error');
 	}
 };

@@ -25,7 +25,7 @@ const authMiddleware = async (req, res, next) => {
 		next(); // Call the next middleware or route handler
 	} catch (error) {
 		console.error(error);
-		return res.status(401).json({ message: 'Invalid token' });
+		return res.status(401).json({ message: 'Please Login again' });
 	}
 };
 export const isAdmin = async (req, res, next) => {
