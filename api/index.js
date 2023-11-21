@@ -3,16 +3,20 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import userRoute from './routes/userRoute.js';
+import productRoute from './routes/productRoute.js';
+import morgan from 'morgan';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.Port || 4000;
 
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
 
 app.use('/api/user', userRoute);
+app.use('/api/product', productRoute);
 
 // Connect to MongoDB
 mongoose

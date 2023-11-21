@@ -12,5 +12,4 @@ const errorHandler = (statusCode, message) => {
 	// Return the error object
 	return error;
 };
-
 export default errorHandler;
