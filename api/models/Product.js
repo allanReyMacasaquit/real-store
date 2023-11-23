@@ -18,7 +18,21 @@ const productSchema = new mongoose.Schema(
 		brands: {
 			type: String,
 			required: true,
-			enum: ['Apple', 'Samsung', 'Lenovo'],
+			enum: [
+				'Apple',
+				'Samsung',
+				'Lenovo',
+				'Motorola',
+				'Hp',
+				'Msi',
+				'Microsoft',
+				'Google',
+				'Windows',
+			],
+		},
+		category: {
+			type: String,
+			required: true,
 		},
 		price: {
 			type: Number,
@@ -34,17 +48,25 @@ const productSchema = new mongoose.Schema(
 			required: true,
 			default: 0,
 		},
-		category: {
-			type: mongoose.Schema.Types.ObjectId,
-			ref: 'Category',
-		},
+
 		images: {
 			type: Array,
 			required: true,
 		},
 		color: {
 			type: String,
-			enum: ['Black', 'Red', 'Brown'],
+			enum: [
+				'Red',
+				'Orange',
+				'Yellow',
+				'Green',
+				'Blue',
+				'Indigo',
+				'Violet',
+				'Purple',
+				'Pink',
+				'Black',
+			],
 		},
 		sold: {
 			type: Number,

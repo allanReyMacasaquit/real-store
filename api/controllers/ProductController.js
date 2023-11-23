@@ -41,14 +41,38 @@ export async function createProduct(req, res, next) {
 
 export async function getProducts(req, res, next) {
 	try {
-		const products = await Product.find();
-		if (!products || products.length === 0) {
-			return res.status(404).json({ message: 'No products found' });
-		}
-		res.json(products);
+		const { page = 1, limit = 10, fields, sort, ...queryObj } = req.query;
+
+		const excludedFields = ['page', 'sort', 'limit', 'fields'];
+		excludedFields.forEach((field) => delete queryObj[field]);
+
+		Object.keys(queryObj).forEach((key) => {
+			queryObj[key] = { $regex: new RegExp(queryObj[key], 'i') };
+		});
+
+		convertToOperators(queryObj);
+
+		let fetchedProducts = await Product.find(queryObj)
+			.select(fields ? fields.split(',').join(' ') : '')
+			.skip((page - 1) * limit)
+			.limit(parseInt(limit))
+			.sort(sort ? sort.split(',').join(' ') : '-createdAt');
+
+		res.json(fetchedProducts);
 	} catch (error) {
 		next(errorHandler(500, 'Internal Server Error'));
 	}
+}
+
+function convertToOperators(queryObj) {
+	const operatorsMap = { gte: '$gte', gt: '$gt', lte: '$lte', lt: '$lt' };
+
+	Object.keys(queryObj).forEach((key) => {
+		if (operatorsMap[key]) {
+			queryObj[operatorsMap[key]] = queryObj[key];
+			delete queryObj[key];
+		}
+	});
 }
 
 export async function getProduct(req, res, next) {
@@ -68,6 +92,17 @@ export async function updateProduct(req, res, next) {
 	try {
 		const productId = req.params.id;
 		const updateData = req.body;
+
+		// Check if the update includes the 'title' field
+		if (updateData.title) {
+			// Generate the slug from the updated title using slugify
+			const updatedTitle = updateData.title;
+			const updatedSlug = slugify(updatedTitle, { lower: true });
+
+			// Update the 'title' and 'slug' fields in the updateData object
+			updateData.title = updatedTitle;
+			updateData.slug = updatedSlug;
+		}
 
 		const updatedProduct = await Product.findByIdAndUpdate(
 			productId,
