@@ -1,7 +1,9 @@
 import errorHandler from '../middlewares/errorhandler.js';
 import bcryptjs from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { sendEmail } from './MailControllers.js';
 
 export const createUser = async (req, res, next) => {
 	const { firstname, lastname, role, mobile, email, password } = req.body;
@@ -239,6 +241,44 @@ export const updateUser = async (req, res, next) => {
 	}
 };
 
+export const updatePassword = async (req, res, next) => {
+	const { _id } = req.user; // Extracting user ID from request parameters
+	const { password } = req.body; // New password received from request body
+
+	try {
+		if (!password) {
+			return res
+				.status(400)
+				.json({ message: 'Password is required for update' });
+		}
+
+		// Hash the new password
+		const hashedPassword = await bcryptjs.hash(password, 10);
+
+		// Update the user's password field
+		const updatedUserPassword = await User.findOneAndUpdate(
+			{ _id },
+			{ password: hashedPassword },
+			{ new: true } // To return the updated document
+		);
+
+		if (!updatedUserPassword) {
+			return res.status(404).json({ message: 'Password not found' });
+		}
+
+		// Exclude sensitive fields from the updated user object before sending the response
+		const { password: updatedPassword, ...updatedUserWithoutPassword } =
+			updatedUserPassword.toObject();
+
+		res.json({
+			message: 'Password updated successfully',
+			updatedUserPassword: updatedUserWithoutPassword,
+		});
+	} catch (error) {
+		next(errorHandler('', 'Unauthorized'));
+	}
+};
+
 export const blockUserAccess = async (req, res, next) => {
 	const blockUser = async (userIdToBlock) => {
 		try {
@@ -365,5 +405,76 @@ export const Logout = async (req, res) => {
 	} catch (error) {
 		console.log(error);
 		return res.status(500).send('Internal Server Error');
+	}
+};
+
+export const forgotPasswordToken = async (req, res) => {
+	try {
+		const { email } = req.body;
+
+		// Find the user by email
+		const user = await User.findOne({ email: email });
+
+		if (!user) {
+			return res.status(404).json({ message: 'User not found.' });
+		}
+
+		// Generate a password reset token
+		const token = await user.generatePasswordResetToken();
+		console.log(token);
+		await user.save(); // Save the updated user document
+
+		// Send the token to the user's email for password reset
+		const data = {
+			to: email,
+			subject: 'Forgot Password',
+			text: `<p>Link to reset your password. <a href="http://localhost:5000/api/user/reset_password/${token}">Click here!</a></p>`,
+		};
+
+		sendEmail(data);
+		return res
+			.status(200)
+			.json({ message: 'Password reset token generated successfully.', token });
+	} catch (error) {
+		console.error('Error generating password reset token:', error);
+		return res.status(500).json({ message: 'Internal server error.' });
+	}
+};
+
+export const resetPasswordToken = async (req, res) => {
+	try {
+		const token = req.params.token;
+		const newPassword = req.body.password; // Assuming the new password is sent in the request body
+
+		// Find the user by the received token and check if it's valid
+		const user = await User.findOne({
+			resetPasswordToken: crypto
+				.createHash('sha256')
+				.update(token)
+				.digest('hex'),
+			resetPasswordExpires: { $gt: Date.now() },
+		});
+
+		if (!user) {
+			return res.status(400).json({ message: 'Invalid or expired token.' });
+		}
+
+		// Hash the new password
+		const hashedPassword = await bcryptjs.hash(newPassword, 10);
+
+		// Update the user's password and clear reset token fields
+		user.password = hashedPassword;
+		user.resetPasswordToken = undefined;
+		user.resetPasswordExpires = undefined;
+
+		await user.save(); // Save the updated user document
+
+		// Respond with success message
+		return res
+			.status(200)
+			.json({ message: 'Password reset successful.', user });
+	} catch (error) {
+		console.error('Error resetting password:', error);
+		res.status(500).json({ message: 'Internal server error.' });
 	}
 };

@@ -4,11 +4,14 @@ import {
 	blockUserAccess,
 	createUser,
 	deleteUser,
+	forgotPasswordToken,
 	getUserById,
 	getUsers,
 	handleRefreshToken,
+	resetPasswordToken,
 	signinUser,
 	unblockUserAccess,
+	updatePassword,
 	updateUser,
 } from '../controllers/UserController.js';
 import authMiddleware, { isAdmin } from '../middlewares/authorizedUser.js';
@@ -19,6 +22,9 @@ userRoute.post('/register', createUser);
 userRoute.post('/signin', signinUser);
 userRoute.get('/refresh', handleRefreshToken);
 userRoute.get('/logout', Logout);
+userRoute.put('/update_password', authMiddleware, updatePassword);
+userRoute.put('/reset_password/:token', resetPasswordToken);
+userRoute.post('/forgot_password_token', forgotPasswordToken);
 userRoute.get('/get_users', authMiddleware, getUsers);
 userRoute.get('/get_user/:id', authMiddleware, isAdmin, getUserById);
 userRoute.delete('/delete_user/:id', authMiddleware, isAdmin, deleteUser);
