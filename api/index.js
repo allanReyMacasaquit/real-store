@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import userRoute from './routes/userRoute.js';
 import productRoute from './routes/productRoute.js';
 import morgan from 'morgan';
+import blogRoute from './routes/blogRoute.js';
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(cookieParser());
 
 app.use('/api/user', userRoute);
 app.use('/api/product', productRoute);
+app.use('/api/blog', blogRoute);
 
 // Connect to MongoDB
 mongoose

@@ -428,7 +428,7 @@ export const forgotPasswordToken = async (req, res) => {
 		const data = {
 			to: email,
 			subject: 'Forgot Password',
-			text: `<p>Link to reset your password. <a href="http://localhost:5000/api/user/reset_password/${token}">Click here!</a></p>`,
+			text: `Link to reset your password. <a href="http://localhost:5000/api/user/reset_password/${token}">Click here!</a>`,
 		};
 
 		sendEmail(data);
@@ -445,13 +445,10 @@ export const resetPasswordToken = async (req, res) => {
 	try {
 		const token = req.params.token;
 		const newPassword = req.body.password; // Assuming the new password is sent in the request body
-
+		const resetToken = crypto.createHash('sha256').update(token).digest('hex');
 		// Find the user by the received token and check if it's valid
 		const user = await User.findOne({
-			resetPasswordToken: crypto
-				.createHash('sha256')
-				.update(token)
-				.digest('hex'),
+			resetPasswordToken: resetToken,
 			resetPasswordExpires: { $gt: Date.now() },
 		});
 
