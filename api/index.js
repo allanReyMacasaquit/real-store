@@ -7,6 +7,8 @@ import productRoute from './routes/productRoute.js';
 import morgan from 'morgan';
 import blogRoute from './routes/blogRoute.js';
 import categoryRoute from './routes/categoryRoute.js';
+import brandRoute from './routes/brandRoute.js';
+import blogCategoryRoute from './routes/blogCategoryRoute.js';
 
 dotenv.config();
 
@@ -21,6 +23,8 @@ app.use('/api/user', userRoute);
 app.use('/api/product', productRoute);
 app.use('/api/blog', blogRoute);
 app.use('/api/category', categoryRoute);
+app.use('/api/brand', brandRoute);
+app.use('/api/blog_category', blogCategoryRoute);
 
 // Connect to MongoDB
 mongoose

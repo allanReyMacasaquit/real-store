@@ -3,6 +3,7 @@ import {
 	createCategory,
 	deleteCategory,
 	getCategories,
+	getCategory,
 	updateCategory,
 } from '../controllers/CategoryControllers.js';
 import authMiddleware, { isAdmin } from '../middlewares/authorizedUser.js';
@@ -10,7 +11,7 @@ import authMiddleware, { isAdmin } from '../middlewares/authorizedUser.js';
 const categoryRoute = express.Router();
 
 categoryRoute.post('/create_category', authMiddleware, isAdmin, createCategory);
-categoryRoute.post(
+categoryRoute.put(
 	'/update_category/:id',
 	authMiddleware,
 	isAdmin,
@@ -22,6 +23,7 @@ categoryRoute.delete(
 	isAdmin,
 	deleteCategory
 );
-categoryRoute.get('/get_categories', authMiddleware, isAdmin, getCategories);
+categoryRoute.get('/get_categories', getCategories);
+categoryRoute.get('/get_category/:id', getCategory);
 
 export default categoryRoute;

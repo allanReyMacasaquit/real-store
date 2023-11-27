@@ -18,17 +18,6 @@ const productSchema = new mongoose.Schema(
 		brands: {
 			type: String,
 			required: true,
-			enum: [
-				'Apple',
-				'Samsung',
-				'Lenovo',
-				'Motorola',
-				'Hp',
-				'Msi',
-				'Microsoft',
-				'Google',
-				'Windows',
-			],
 		},
 		category: {
 			type: String,
